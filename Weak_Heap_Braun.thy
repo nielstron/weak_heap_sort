@@ -148,57 +148,33 @@ fun ph_construct:: "(bool\<times>'a::linorder) tree \<Rightarrow> (bool\<times>'
     (case ph_sift_down (a, (ph_construct r)) of (a', r') \<Rightarrow> \<langle>ph_construct l, (i,a'), r'\<rangle>)
 )"
 
-fun eq_structure where
-"eq_structure Leaf Leaf = True" |
-"eq_structure (Node l _ r) Leaf = False" |
-"eq_structure  Leaf (Node l _ r) = False" |
-"eq_structure (Node l1 _ r1) (Node l2 _ r2) = (eq_structure l1 l2 \<and> eq_structure r1 r2)"
 
-lemma eq_struct_height: "eq_structure t1 t2 \<Longrightarrow> Tree.height t1 = Tree.height t2"
-  apply(induction t1 t2 rule: eq_structure.induct)
-     apply(auto)
+fun ph_wheap:: "(bool\<times>'a::linorder) tree \<Rightarrow> ('a::linorder) tree" where
+"ph_wheap Leaf = Leaf" |
+"ph_wheap (\<langle>l, (i,a), r\<rangle> =: t) = (
+  \<langle>ph_wheap (ph_left_sub t), a, (ph_wheap (ph_right_sub t))\<rangle>
+)"
+
+abbreviation "ph_wheap_pair \<equiv> (\<lambda>(a,t). (a, ph_wheap t))"
+
+lemma ph_join_eq: "ph_wheap_pair (ph_join (a, t)) = join (a, ph_wheap t)"
+  apply (induction t)
+   apply auto
   done
 
-lemma eq_struct_size: "eq_structure t1 t2 \<Longrightarrow> size t1 = size t2"
-  apply(induction t1 t2 rule: eq_structure.induct)
-     apply(auto)
+lemma ph_sift_down_eq: "ph_wheap_pair (ph_sift_down (a, t)) = sift_down (a, ph_wheap t)"
+  apply (induction t)
+   apply (auto split!: prod.splits)
   done
 
-lemma eq_struct_complete: "eq_structure t1 t2 \<Longrightarrow> Tree.complete t1 = Tree.complete t2"
-  apply(induction t1 t2 rule: eq_structure.induct)
-     apply(auto simp add: eq_struct_height)
+lemma ph_construct_eq: "ph_wheap (ph_construct ti) = construct (ph_wheap ti)"
+  apply(induction ti)
+   apply (auto split!: prod.splits)
+     apply (metis Pair_inject old.prod.case ph_sift_down_eq)
+    apply (metis Pair_inject old.prod.case ph_sift_down_eq)
+   apply (metis Pair_inject old.prod.case ph_sift_down_eq)
+  apply (metis Pair_inject old.prod.case ph_sift_down_eq)
   done
-
-lemma eq_structure_braun: "eq_structure t1 t2 \<Longrightarrow>  braun t1 = braun t2"
-  apply(induction t1 t2 rule: eq_structure.induct)
-     apply(auto simp add: eq_struct_size)
-  done
-
-lemma eq_structure_self: "eq_structure t t"
-  apply(induction t)
-   apply(auto)
-  done
-
-lemma eq_structure_trans: "\<lbrakk>eq_structure t1 t2; eq_structure t2 t3\<rbrakk> \<Longrightarrow> eq_structure t1 t3"
-  apply(induction t1 t3 arbitrary: t2 rule: eq_structure.induct)
-   apply(auto)
-  done
-
-lemma eq_structure_ph_join: "eq_structure t (tree_of_wheap (ph_join (a,t)))"
-  apply(cases t)
-   apply(auto simp add: eq_structure_self)
-  done
-
-lemma eq_structure_ph_sift_down: "eq_structure t (tree_of_wheap (ph_sift_down (a,t)))"
-  apply(induction t arbitrary: a)
-   apply(auto split: bool.splits prod.splits simp del: ph_join.simps)
-   apply (metis eq_structure.simps(4) eq_structure_ph_join ph_join.simps(2) tree_of_wheap.simps)+
-  done
-
-lemma "eq_structure t (ph_construct t)"
-  apply(induction t)
-   apply(auto split: prod.splits simp del: ph_sift_down.simps simp add: eq_structure_ph_sift_down eq_structure_self)
-  sledgehammer
 
 end
 end
