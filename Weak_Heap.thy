@@ -78,13 +78,11 @@ value "weak_heap (\<langle>\<langle>\<rangle>, (1::nat), \<langle>\<langle>\<lan
 lemma weak_heap_height: "almost_complete n t \<Longrightarrow> height t = n \<or> height t = n - 1"
   apply(induction n t rule: almost_complete.induct)
    apply(auto split: nat.splits)
-  apply(fastforce)+
   done
 
 lemma weak_heap_minheight: "almost_complete n t \<Longrightarrow> min_height t = n \<or> min_height t = n - 1"
   apply(induction n t rule: almost_complete.induct)
    apply(auto split: nat.splits)
-  apply(fastforce)+
   done
 
 

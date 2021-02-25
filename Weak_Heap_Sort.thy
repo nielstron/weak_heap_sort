@@ -18,7 +18,7 @@ proof -
   then obtain x xs where "l = x#xs" by (cases l) auto
   let ?A = "heap_of_A xs"
   have 1: "almost_complete (height ?A) ?A"
-    by (simp add: almost_complete_balanced balanced_if_braun braun_heap_of_A)
+    by (simp add: heap_of_A_almost_complete)
   then have "almost_complete (height ?A) (construct ?A)" by (simp add: almost_complete_construct)
   then have "almost_complete (height ?A) (tree_of_wheap (sift_down (x, (construct ?A))))"
     by (simp add: almost_complete_sift_down)

@@ -9,12 +9,12 @@ text\<open>Trees fulfilling the structural invariant (almost completeness) are
 
 
 find_theorems size braun
-thm balanced_if_braun
-find_theorems balanced
 
-lemma balanced_almost_complete: "almost_complete n t \<Longrightarrow> balanced t"
-  using weak_heap_height weak_heap_minheight balanced_def by fastforce
-
+lemma balanced_almost_complete: "almost_complete n t \<Longrightarrow> acomplete t"
+  apply(induction n t rule: almost_complete.induct)
+   apply (auto simp add: acomplete_def split!: nat.splits)
+  by (smt (z3) One_nat_def cancel_ab_semigroup_add_class.diff_right_commute diff_is_0_eq max.orderI max_def min_def weak_heap_height weak_heap_minheight)
+  
 text \<open>This simplifies the  proof of logarithmic height.\<close>
 
 find_theorems balanced  height
@@ -22,8 +22,10 @@ find_theorems size1 size
 
 hide_fact weak_heap_node_size
 
-lemma weak_heap_node_size: assumes "almost_complete (height t) t" shows "height t = nat \<lceil>log 2 (size1 t)\<rceil>"
-  using balanced_almost_complete height_balanced assms by blast
+lemma weak_heap_node_size:
+  assumes "almost_complete (height t) t"
+  shows "height t = nat \<lceil>log 2 (size1 t)\<rceil>"
+  using assms balanced_almost_complete height_acomplete by blast
 
 find_theorems min_height height
 find_theorems balanced
@@ -49,17 +51,20 @@ lemma almost_complete_one_more:"Tree.complete t \<Longrightarrow> almost_complet
 text \<open>We show that hence the almost complete trees are equivalent to the balanced trees.
 That way the braun tree creation from a list could be used to generate the tree that weak_heap_heap_sort will sort.\<close>
 
-lemma almost_complete_balanced: "balanced t \<Longrightarrow> almost_complete (height t) t"
+lemma almost_complete_balanced: "acomplete t \<Longrightarrow> almost_complete (height t) t"
 proof (induction t)
   case (Node l a r)
   let ?t = "\<langle>l, a, r\<rangle>"
   have "almost_complete (height ?t - 1) l \<and> almost_complete (height ?t - 1) r"
   proof
-    from Node  have "balanced l" by (meson balanced_subtreeL)
+    from Node  have "acomplete l"
+      by (meson acomplete_subtreeL)
     then have "almost_complete (height l) l" using Node by auto
  
     from Node have "height l = height ?t - 1 \<or> (height l = min_height l \<and> height l + 1 = height ?t - 1)"
-      by (smt add_leE balanced_def diff_diff_add height_tree.simps(2) le_Suc_eq le_less max_def min_def min_height.simps(2) min_height_le_height not_less one_add_one ordered_cancel_comm_monoid_diff_class.add_diff_inverse ordered_cancel_comm_monoid_diff_class.le_imp_diff_is_add plus_1_eq_Suc zero_less_diff)
+      apply (auto simp add: acomplete_def)
+       apply (smt (z3) Suc_le_eq Suc_pred diff_diff_cancel diff_is_0_eq diff_le_self le_Suc_eq le_trans max_def min_def min_height_le_height)+
+      done
     then show "almost_complete (height ?t - 1) l"
     proof
       assume "height l = height ?t - 1"
@@ -71,11 +76,15 @@ proof (induction t)
       then show "almost_complete (height ?t - 1) l" using assms by auto
     qed
   next
-    from Node  have "balanced r" by (meson balanced_subtreeR)
+    from Node  have "acomplete r"
+      by (meson acomplete_subtreeR)
     then have "almost_complete (height r) r" using Node by auto
  
     from Node have "height r = height ?t - 1 \<or> (height r = min_height r \<and> height r + 1 = height ?t - 1)"
-      by (smt add_leE balanced_def diff_diff_add height_tree.simps(2) le_Suc_eq le_less max_def min_def min_height.simps(2) min_height_le_height not_less one_add_one ordered_cancel_comm_monoid_diff_class.add_diff_inverse ordered_cancel_comm_monoid_diff_class.le_imp_diff_is_add plus_1_eq_Suc zero_less_diff)
+      apply (auto simp add: acomplete_def)
+       apply (smt (z3) Node.prems One_nat_def Suc_le_eq Suc_pred \<open>acomplete r\<close> acomplete_def acomplete_subtreeL diff_is_0_eq diff_le_self eq_diff_iff le_Suc_eq max.cobounded2 max_def min.absorb2 weak_heap_minheight)
+      apply (smt (verit) Suc_le_eq Suc_pred cancel_comm_monoid_add_class.diff_cancel diff_diff_cancel diff_le_self dual_order.eq_iff le_Suc_eq le_trans le_zero_eq max.cobounded2 min.cobounded2 min_height_le_height)
+      done
     then show "almost_complete (height ?t - 1) r"
     proof
       assume "height r = height ?t - 1"
@@ -90,16 +99,16 @@ proof (induction t)
   then show ?case by auto
 qed auto
 
-lemma balanced_eq_almost_complete: "balanced t = almost_complete (height t) t"
+lemma balanced_eq_almost_complete: "acomplete t = almost_complete (height t) t"
   using almost_complete_balanced balanced_almost_complete by blast
 
 find_theorems heap_of_A
-find_theorems braun balanced
+find_theorems braun acomplete
 
 text \<open>This means we are able to construct almost complete trees from a list\<close>
 
 lemma "t = heap_of_A l \<Longrightarrow> almost_complete (height t) t"
-  using balanced_eq_almost_complete balanced_if_braun braun_heap_of_A by metis
+  by (simp add: braun_heap_of_A almost_complete_balanced acomplete_if_braun)
 
 section \<open>We now define the "physical" Weak Heap, always maintaining array order and implicitely structure via reverse bits.
 The benefit of that tree is that for all operations, it maintains the braun invariant.\<close>
