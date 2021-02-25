@@ -107,31 +107,25 @@ find_theorems braun acomplete
 
 text \<open>This means we are able to construct almost complete trees from a list\<close>
 
-lemma "t = heap_of_A l \<Longrightarrow> almost_complete (height t) t"
+lemma heap_of_A_almost_complete: "t = heap_of_A l \<Longrightarrow> almost_complete (height t) t"
   by (simp add: braun_heap_of_A almost_complete_balanced acomplete_if_braun)
 
-section \<open>We now define the "physical" Weak Heap, always maintaining array order and implicitely structure via reverse bits.
+section \<open>We now define the "physical" Weak Heap,
+ always maintaining array order and implicit structure via reverse bits.
+It refines the weak heap data structure.
 The benefit of that tree is that for all operations, it maintains the braun invariant.\<close>
 context includes pattern_aliases
 begin
 
-fun ph_right_sub :: "(bool\<times>'a::linorder) tree \<Rightarrow> (bool\<times>'a::linorder) tree" where
-  "ph_right_sub Leaf = Leaf" |
-  "ph_right_sub \<langle>l, (i,a), r\<rangle> = (if i then l else r)"
 
-fun ph_left_sub :: "(bool\<times>'a::linorder) tree \<Rightarrow> (bool\<times>'a::linorder) tree" where
-  "ph_left_sub Leaf = Leaf" |
-  "ph_left_sub \<langle>l, (i,a), r\<rangle> = (if i then r else l)"
-
-fun ph_right_heap :: "(bool\<times>'a::linorder) tree \<Rightarrow> bool" where
-"ph_right_heap Leaf = True" |
-"ph_right_heap (Node l (i,a) r =: t) = (
-   ph_right_heap l \<and> ph_right_heap r \<and>
-   (\<forall>(ix,x) \<in> set_tree (ph_right_sub t). a \<le> x)
+fun ph_wheap:: "(bool\<times>'a::linorder) tree \<Rightarrow> ('a::linorder) tree" where
+"ph_wheap Leaf = Leaf" |
+"ph_wheap \<langle>l, (i,a), r\<rangle> = (
+  if i then \<langle>ph_wheap r, a, ph_wheap l\<rangle> else \<langle>ph_wheap l, a, ph_wheap r\<rangle>
 )"
 
-fun ph_weak_heap_node :: "nat  \<Rightarrow> (bool\<times>'a::linorder) tree \<Rightarrow> bool" where
-"ph_weak_heap_node n t = (almost_complete n t \<and> ph_right_heap t)"
+fun ph_weak_heap :: "nat  \<Rightarrow> (bool\<times>'a::linorder) tree \<Rightarrow> bool" where
+"ph_weak_heap n t = (braun t \<and> right_heap (ph_wheap t))"
 
 type_synonym 'a ph_wheap = "'a \<times> (bool\<times>'a) tree"
 
@@ -143,10 +137,8 @@ fun ph_join:: "'a::linorder ph_wheap \<Rightarrow> 'a::linorder ph_wheap" where
 
 fun ph_sift_down::"'a::linorder ph_wheap \<Rightarrow> 'a::linorder ph_wheap" where
  "ph_sift_down (a, Leaf) = (a, Leaf)" |
- "ph_sift_down (a, \<langle>l, x, r\<rangle>) = (case x of (False, _) \<Rightarrow>
-    (case ph_sift_down (a, l) of (a', l') \<Rightarrow> ph_join (a', \<langle>l', x, r\<rangle>))
-| (True, _) \<Rightarrow>
-    (case ph_sift_down (a, r) of (a', r') \<Rightarrow>  ph_join (a', \<langle>l, x, r'\<rangle>))
+ "ph_sift_down (a, \<langle>l, (i,b), r\<rangle>) = (
+case ph_sift_down (a, if i then r else l) of (a', m') \<Rightarrow> ph_join (a', if i then \<langle>l, (i,b), m'\<rangle> else \<langle>m', (i,b), r\<rangle>)
 )"
 
 fun ph_construct:: "(bool\<times>'a::linorder) tree \<Rightarrow> (bool\<times>'a::linorder) tree" where
@@ -157,33 +149,76 @@ fun ph_construct:: "(bool\<times>'a::linorder) tree \<Rightarrow> (bool\<times>'
     (case ph_sift_down (a, (ph_construct r)) of (a', r') \<Rightarrow> \<langle>ph_construct l, (i,a'), r'\<rangle>)
 )"
 
+lemma "size t = size (ph_wheap t)"
+  apply(induction t)
+   apply auto
+  done
 
-fun ph_wheap:: "(bool\<times>'a::linorder) tree \<Rightarrow> ('a::linorder) tree" where
-"ph_wheap Leaf = Leaf" |
-"ph_wheap (\<langle>l, (i,a), r\<rangle> =: t) = (
-  \<langle>ph_wheap (ph_left_sub t), a, (ph_wheap (ph_right_sub t))\<rangle>
-)"
 
 abbreviation "ph_wheap_pair \<equiv> (\<lambda>(a,t). (a, ph_wheap t))"
 
-lemma ph_join_eq: "ph_wheap_pair (ph_join (a, t)) = join (a, ph_wheap t)"
+lemma ph_join_ref: "ph_wheap_pair (ph_join (a, t)) = join (a, ph_wheap t)"
   apply (induction t)
    apply auto
   done
 
-lemma ph_sift_down_eq: "ph_wheap_pair (ph_sift_down (a, t)) = sift_down (a, ph_wheap t)"
+lemma ph_sift_down_ref: "ph_wheap_pair (ph_sift_down (a, t)) = sift_down (a, ph_wheap t)"
   apply (induction t)
    apply (auto split!: prod.splits)
   done
 
-lemma ph_construct_eq: "ph_wheap (ph_construct ti) = construct (ph_wheap ti)"
+lemma ph_construct_ref: "ph_wheap (ph_construct ti) = construct (ph_wheap ti)"
   apply(induction ti)
    apply (auto split!: prod.splits)
-     apply (metis Pair_inject old.prod.case ph_sift_down_eq)
-    apply (metis Pair_inject old.prod.case ph_sift_down_eq)
-   apply (metis Pair_inject old.prod.case ph_sift_down_eq)
-  apply (metis Pair_inject old.prod.case ph_sift_down_eq)
+     apply (metis Pair_inject old.prod.case ph_sift_down_ref)+
   done
+
+abbreviation "braun_pair \<equiv> (\<lambda>(a,t). braun t)"
+abbreviation "size_pair \<equiv> (\<lambda>(a,t). size t)"
+
+lemma ph_join_braun: "braun t \<Longrightarrow> braun_pair (ph_join (a,t))"
+  apply(cases t)
+   apply (auto split!: if_splits)
+  done
+
+lemma ph_join_size: "size t = size_pair (ph_join (a,t))"
+  apply(cases t)
+   apply auto
+  done
+
+lemma ph_sift_down_size: "size t = size_pair (ph_sift_down (a,t))"
+  apply(induction t arbitrary: a)
+   apply (auto split!: prod.splits if_splits)
+     apply (metis case_prod_conv)+
+  done
+
+lemma ph_sift_down_braun: "braun t \<Longrightarrow> braun_pair (ph_sift_down (a,t))"
+  apply(induction t arbitrary: a)
+   apply (auto split!: prod.splits if_splits simp add: ph_sift_down_size)
+             apply (metis case_prod_conv ph_sift_down_size)+
+  done
+
+lemma "braun t \<Longrightarrow> braun_pair (ph_sift_down (a,t))"
+proof (induction "(a,t)" arbitrary: a t rule: ph_sift_down.induct)
+  case (1 a)
+  then show ?case by auto
+next
+  case (2 a l i b r)
+  obtain a' m' where sift_down_simp: "ph_sift_down (a, if i then r else l) = (a', m')"
+    by (meson surj_pair)
+  then have "braun_pair (ph_sift_down (a, if i then r else l))"
+    apply(cases i)
+    using 2 apply auto
+    done
+  then have "braun m'"
+    by (simp add: sift_down_simp)
+  moreover have "size m' = size (if i then r else l)"
+    apply(cases i)
+     apply (metis (mono_tags, lifting) case_prod_conv ph_sift_down_size sift_down_simp)+
+    done
+  ultimately show ?case
+    using "2.prems" by (auto simp add: sift_down_simp)
+qed
 
 end
 end
